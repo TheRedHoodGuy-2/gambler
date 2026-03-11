@@ -716,6 +716,28 @@
     margin-right: 5px;
     animation: pulse 1.5s infinite;
   }
+
+  /* ── VIP GOLD HIGHLIGHT ── */
+  tr.vip-row td {
+    background: rgba(255, 215, 0, 0.06) !important;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.15) !important;
+  }
+  tr.vip-row:hover td { background: rgba(255, 215, 0, 0.11) !important; }
+  .vip-crown {
+    color: var(--accent3);
+    font-size: 11px;
+    margin-right: 4px;
+  }
+  .vip-id {
+    color: var(--accent3) !important;
+    font-weight: 700;
+    text-shadow: 0 0 8px rgba(255,215,0,0.4);
+  }
+  .player-row.vip-player-row {
+    border-color: rgba(255,215,0,0.35) !important;
+    background: rgba(255,215,0,0.05) !important;
+  }
+  .player-row.vip-player-row:hover { border-color: rgba(255,215,0,0.6) !important; }
 </style>
 </head>
 <body>
@@ -876,6 +898,10 @@ const SUPABASE_URL = 'https://khanjefntlxhtfpezmqh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoYW5qZWZudGx4aHRmcGV6bXFoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzE0NTMxMCwiZXhwIjoyMDg4NzIxMzEwfQ.ApHKmG7uXTQeEzygTiIqbTOk72Iv7QV-5Vh5-rksKfs';
 const CLAUDE_KEY  = 'sk-ant-api03-placeholder'; // replace with your key if self-hosting
 
+// ── VIP PLAYER ────────────────────────────────────────────────────────────────
+const VIP_PHONE = '2348122849070'; // highlighted in gold throughout
+let vipPlayerId = null; // resolved after players load
+
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let allBets = [], allPlayers = [];
 let gcFilter = 'all';
@@ -911,6 +937,10 @@ async function loadAll() {
 
     allBets = bets;
     allPlayers = players;
+
+    // Resolve VIP player ID from phone number
+    const vipPlayer = allPlayers.find(p => p.phone === VIP_PHONE);
+    vipPlayerId = vipPlayer?.id || null;
 
     document.getElementById('connDot').className = 'pulse';
     document.getElementById('connStatus').textContent = 'LIVE';
@@ -1195,8 +1225,9 @@ function renderBetsTable() {
     const delta = parseInt(b.amount_delta) || 0;
     const dStr = b.amount_delta != null ? `<span class="${delta>=0?'delta-pos':'delta-neg'}">${delta>=0?'+':''}${fmtNum(delta)}</span>` : '—';
     const timeStr = b.bet_time ? new Date(b.bet_time).toLocaleTimeString() : '--';
-    return `<tr>
-      <td>${b.player_id}</td>
+    const isVip = vipPlayerId && b.player_id === vipPlayerId;
+    return `<tr${isVip ? ' class="vip-row"' : ''}>
+      <td><span class="${isVip ? 'vip-id' : ''}">${isVip ? '<span class="vip-crown">♛</span>' : ''}${b.player_id}</span></td>
       <td><span class="game-tag">${b.game?.toUpperCase()}</span></td>
       <td>${fmtNum(parseInt(b.bet_amount)||0)}</td>
       <td>${dStr}</td>
@@ -1248,9 +1279,10 @@ function renderPlayers() {
       const wr = t ? (s.w/t*100).toFixed(0) : 0;
       const player = allPlayers.find(p => p.id === pid);
       const roi = s.wagered ? (s.delta/s.wagered*100).toFixed(0) : 0;
-      return `<div class="player-row">
-        <span style="color:var(--accent4);font-weight:700">${pid}</span>
-        <span style="color:var(--text-dim);font-size:10px">${player?.name || '—'}</span>
+      const isVip = vipPlayerId && pid === vipPlayerId;
+      return `<div class="player-row${isVip ? ' vip-player-row' : ''}">
+        <span style="color:${isVip ? 'var(--accent3)' : 'var(--accent4)'};font-weight:700;${isVip ? 'text-shadow:0 0 8px rgba(255,215,0,0.4)' : ''}">${isVip ? '♛ ' : ''}${pid}</span>
+        <span style="color:${isVip ? 'var(--accent3)' : 'var(--text-dim)'};font-size:10px">${player?.name || '—'}</span>
         <span>${s.w}/${t}</span>
         <span style="color:${parseFloat(wr)>=55?'var(--win)':parseFloat(wr)<45?'var(--loss)':'var(--text)'}">${wr}%</span>
         <span style="color:${parseFloat(roi)>=0?'var(--win)':'var(--loss)'}">${roi}%</span>

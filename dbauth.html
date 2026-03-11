@@ -1,0 +1,2638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TENSURA // INTELLIGENCE</title>
+<script src="https://js.puter.com/v2/"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080a0f;
+    --surface: #0d1117;
+    --surface2: #111820;
+    --border: #1e2a38;
+    --accent: #00ff88;
+    --accent2: #ff4466;
+    --accent3: #ffd700;
+    --accent4: #00aaff;
+    --text: #c8d8e8;
+    --text-dim: #4a6070;
+    --text-bright: #eaf4ff;
+    --win: #00ff88;
+    --loss: #ff4466;
+    --pending: #ffd700;
+    --incomplete: #5566aa;
+    --font-mono: 'Space Mono', monospace;
+    --font-display: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,136,0.015) 2px, rgba(0,255,136,0.015) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--text-dim); }
+
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .pulse {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.5s infinite;
+  }
+
+  .pulse.offline { background: var(--loss); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,255,136,0.05); }
+  .btn.danger { border-color: var(--loss); color: var(--loss); }
+  .btn.danger:hover { background: rgba(255,68,102,0.1); }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr 340px;
+    height: calc(100vh - 53px);
+    max-height: calc(100vh - 53px);
+    overflow: hidden;
+    /* mobile overrides below */
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    overflow-y: auto;
+    padding: 16px 0;
+  }
+
+  .sidebar-section {
+    padding: 0 16px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,255,136,0.04); }
+
+  .gc-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    margin: 3px 2px;
+    transition: all 0.15s;
+    letter-spacing: 1px;
+  }
+
+  .gc-pill.active { border-color: var(--accent); color: var(--accent); }
+  .gc-pill:hover { border-color: var(--accent4); color: var(--accent4); }
+
+  .stat-mini {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .stat-mini-label { color: var(--text-dim); font-size: 11px; }
+  .stat-mini-val { color: var(--text-bright); font-size: 12px; font-weight: 700; }
+  .stat-mini-val.green { color: var(--win); }
+  .stat-mini-val.red { color: var(--loss); }
+  .stat-mini-val.yellow { color: var(--pending); }
+
+  /* ── MAIN ── */
+  .main {
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg);
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .tab {
+    padding: 12px 18px;
+    cursor: pointer;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── CONTENT PANELS ── */
+  .panel { padding: 20px; display: none; }
+  .panel.active { display: block; }
+
+  /* ── KPI ROW ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .kpi-card.red::before { background: var(--loss); }
+  .kpi-card.yellow::before { background: var(--pending); }
+  .kpi-card.blue::before { background: var(--accent4); }
+
+  .kpi-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .kpi-value {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text-bright);
+    line-height: 1;
+  }
+
+  .kpi-sub {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ── CHART AREA ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+  }
+
+  .chart-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  /* bar charts */
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .bar-label { width: 70px; font-size: 11px; color: var(--text-dim); text-align: right; }
+  .bar-track { flex: 1; height: 18px; background: rgba(255,255,255,0.04); position: relative; }
+  .bar-fill { height: 100%; background: var(--accent); transition: width 0.6s ease; position: relative; }
+  .bar-fill.loss { background: var(--loss); }
+  .bar-fill.yellow { background: var(--pending); }
+  .bar-fill.blue { background: var(--accent4); }
+  .bar-pct { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--bg); font-weight: 700; }
+  .bar-pct.outside { right: -28px; color: var(--text-dim); }
+  .bar-count { width: 40px; font-size: 11px; color: var(--text-dim); }
+
+  /* streak indicator */
+  .streak-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .streak-box {
+    padding: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .streak-n { font-size: 28px; font-family: var(--font-display); font-weight: 800; }
+  .streak-n.green { color: var(--win); }
+  .streak-n.red { color: var(--loss); }
+  .streak-label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+  .streak-pct { font-size: 18px; font-weight: 700; margin-top: 4px; }
+
+  /* ── BETS TABLE ── */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  thead th {
+    padding: 8px 12px;
+    text-align: left;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    font-size: 10px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  thead th:hover { color: var(--accent); }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: background 0.1s;
+  }
+
+  tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+  tbody td {
+    padding: 7px 12px;
+    white-space: nowrap;
+    color: var(--text);
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .status-badge.win { color: var(--win); border: 1px solid rgba(0,255,136,0.3); }
+  .status-badge.loss { color: var(--loss); border: 1px solid rgba(255,68,102,0.3); }
+  .status-badge.pending { color: var(--pending); border: 1px solid rgba(255,215,0,0.3); }
+  .status-badge.incomplete { color: var(--incomplete); border: 1px solid rgba(85,102,170,0.3); }
+
+  .game-tag {
+    padding: 1px 6px;
+    font-size: 10px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .delta-pos { color: var(--win); }
+  .delta-neg { color: var(--loss); }
+
+  /* pagination */
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .page-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .page-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .page-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,255,136,0.05); }
+
+  /* filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-select, .filter-input {
+    padding: 6px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    outline: none;
+  }
+
+  .filter-select:focus, .filter-input:focus { border-color: var(--accent); }
+
+  /* ── AI PANEL ── */
+  .ai-panel {
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    position: sticky;
+    top: 0;
+  }
+
+  .ai-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ai-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .ai-subtitle { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+  .ai-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ai-msg {
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.7;
+    border-left: 2px solid var(--border);
+    color: var(--text);
+  }
+
+  .ai-msg.system {
+    border-left-color: var(--accent);
+    background: rgba(0,255,136,0.04);
+    color: var(--text-bright);
+  }
+
+  .ai-msg.user {
+    border-left-color: var(--accent4);
+    background: rgba(0,170,255,0.04);
+    color: var(--text-dim);
+  }
+
+  .ai-msg.thinking {
+    border-left-color: var(--pending);
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .ai-msg-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+
+  .ai-input-area {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ai-input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    outline: none;
+    resize: none;
+    height: 60px;
+  }
+
+  .ai-input:focus { border-color: var(--accent); }
+
+  .ai-quick-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .quick-btn {
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  .quick-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── PLAYERS TABLE ── */
+  .player-grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .player-row {
+    display: grid;
+    grid-template-columns: 60px 100px 60px 60px 60px 80px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 11px;
+    transition: border-color 0.15s;
+  }
+
+  .player-row:hover { border-color: var(--accent4); }
+  .player-row.header-row { background: transparent; border-color: transparent; color: var(--text-dim); font-size: 10px; letter-spacing: 1px; }
+
+  /* ── PATTERNS PANEL ── */
+  .pattern-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .pattern-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+  }
+
+  .pattern-card-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .pattern-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 11px;
+  }
+
+  .pattern-row:last-child { border-bottom: none; }
+
+  .pattern-label { color: var(--text-dim); }
+
+  .win-rate-big {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 22px;
+  }
+
+  .signal-box {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    margin-bottom: 8px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .signal-icon { font-size: 18px; }
+
+  .signal-text { font-size: 11px; line-height: 1.6; }
+  .signal-title { color: var(--text-bright); font-weight: 700; margin-bottom: 2px; letter-spacing: 1px; }
+  .signal-desc { color: var(--text-dim); }
+
+  .signal-box.hot { border-color: rgba(0,255,136,0.3); background: rgba(0,255,136,0.04); }
+  .signal-box.cold { border-color: rgba(255,68,102,0.3); background: rgba(255,68,102,0.04); }
+  .signal-box.warn { border-color: rgba(255,215,0,0.3); background: rgba(255,215,0,0.04); }
+
+  /* loading */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-dim);
+    font-size: 12px;
+    letter-spacing: 2px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .spinner {
+    width: 24px; height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* typing dots */
+  .typing-dots span {
+    display: inline-block;
+    width: 4px; height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin: 0 2px;
+    animation: blink 1.2s infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+  .highlight { color: var(--accent); }
+  .highlight-red { color: var(--loss); }
+  .highlight-yellow { color: var(--pending); }
+  .highlight-blue { color: var(--accent4); }
+
+  .refresh-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .live-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-right: 5px;
+    animation: pulse 1.5s infinite;
+  }
+
+  /* ── VIP GOLD HIGHLIGHT ── */
+  tr.vip-row td {
+    background: rgba(255, 215, 0, 0.06) !important;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.15) !important;
+  }
+  tr.vip-row:hover td { background: rgba(255, 215, 0, 0.11) !important; }
+  .vip-crown {
+    color: var(--accent3);
+    font-size: 11px;
+    margin-right: 4px;
+  }
+  .vip-id {
+    color: var(--accent3) !important;
+    font-weight: 700;
+    text-shadow: 0 0 8px rgba(255,215,0,0.4);
+  }
+  .player-row.vip-player-row {
+    border-color: rgba(255,215,0,0.35) !important;
+    background: rgba(255,215,0,0.05) !important;
+  }
+  .player-row.vip-player-row:hover { border-color: rgba(255,215,0,0.6) !important; }
+
+  /* ══════════════════════════════════════════
+     AUTH SYSTEM STYLES
+  ══════════════════════════════════════════ */
+
+  /* Login screen overlay */
+  #authScreen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  #authScreen.hidden { display: none; }
+
+  .auth-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    width: min(400px, 92vw);
+    padding: 36px 32px 28px;
+    position: relative;
+  }
+
+  .auth-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent4));
+  }
+
+  .auth-logo {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .auth-logo span { color: var(--text-dim); }
+
+  .auth-subtitle {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+
+  .auth-field {
+    margin-bottom: 14px;
+  }
+
+  .auth-field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .auth-field input {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .auth-field input:focus { border-color: var(--accent); }
+  .auth-field input.error { border-color: var(--loss); }
+
+  .auth-error {
+    font-size: 11px;
+    color: var(--loss);
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    min-height: 16px;
+  }
+
+  .auth-submit {
+    width: 100%;
+    padding: 11px;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 12px;
+  }
+
+  .auth-submit:hover { background: rgba(0,255,136,0.15); }
+
+  .auth-not-xavier {
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .auth-not-xavier:hover { border-color: var(--accent4); color: var(--accent4); }
+
+  /* Guest modal */
+  #guestModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  #guestModal.hidden { display: none; }
+
+  .guest-modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    width: min(420px, 92vw);
+    padding: 28px 26px 24px;
+    position: relative;
+  }
+
+  .guest-modal-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent4);
+  }
+
+  .guest-modal-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-bright);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .guest-modal-sub {
+    font-size: 10px;
+    color: var(--accent4);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .guest-modal-body {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.8;
+    margin-bottom: 20px;
+    border-left: 2px solid var(--accent4);
+    padding-left: 12px;
+    background: rgba(0,170,255,0.04);
+    padding: 12px;
+  }
+
+  .guest-modal-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    margin-bottom: 20px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .guest-modal-hint strong { color: var(--accent3); }
+
+  .guest-modal-btns {
+    display: flex;
+    gap: 8px;
+  }
+
+  .guest-accept-btn {
+    flex: 1;
+    padding: 10px;
+    background: rgba(0,170,255,0.08);
+    border: 1px solid var(--accent4);
+    color: var(--accent4);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .guest-accept-btn:hover { background: rgba(0,170,255,0.15); }
+
+  .guest-cancel-btn {
+    padding: 10px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .guest-cancel-btn:hover { border-color: var(--loss); color: var(--loss); }
+
+  /* Guest AI lockout banner */
+  #guestLockBanner {
+    display: none;
+    padding: 8px 14px;
+    background: rgba(0,170,255,0.06);
+    border-bottom: 1px solid rgba(0,170,255,0.2);
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--accent4);
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  #guestLockBanner.visible { display: block; }
+
+  /* Locked AI input overlay */
+  .ai-locked-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8,10,15,0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 10;
+    backdrop-filter: blur(2px);
+  }
+
+  .ai-locked-overlay.hidden { display: none; }
+
+  .ai-locked-msg {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-align: center;
+    line-height: 1.7;
+    max-width: 220px;
+  }
+
+  .ai-locked-msg strong { color: var(--loss); display: block; font-size: 13px; margin-bottom: 4px; letter-spacing: 2px; }
+
+  /* ══════════════════════════════════════════
+     RESPONSIVE / MOBILE STYLES
+     No functionality changed — layout only
+  ══════════════════════════════════════════ */
+
+  /* ── Mobile nav toggle button ── */
+  .mobile-nav-toggle {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 10px;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+  .mobile-nav-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Mobile AI panel toggle ── */
+  .mobile-ai-toggle {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 5px 12px;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  .mobile-ai-toggle:hover { border-color: var(--accent); background: rgba(0,255,136,0.06); }
+
+  /* ── Mobile sidebar overlay ── */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 200;
+    backdrop-filter: blur(2px);
+  }
+  .sidebar-overlay.open { display: block; }
+
+  /* ── Responsive breakpoints ── */
+
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 200px 1fr 300px; }
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 180px 1fr;
+      height: calc(100vh - 53px);
+      max-height: calc(100vh - 53px);
+      overflow: hidden;
+    }
+    .main { height: 100%; overflow-y: auto; }
+    .ai-panel {
+      position: fixed;
+      right: -110%;
+      top: 0;
+      width: min(360px, 92vw);
+      height: 100dvh;
+      z-index: 300;
+      transition: right 0.3s cubic-bezier(0.4,0,0.2,1);
+      border-left: 1px solid var(--border);
+      box-shadow: -8px 0 32px rgba(0,0,0,0.6);
+    }
+    .ai-panel.open { right: 0; }
+    .mobile-ai-toggle { display: inline-flex; align-items: center; gap: 6px; }
+  }
+
+  @media (max-width: 680px) {
+    /* Kill the fixed-height layout entirely on mobile */
+    .layout {
+      display: block !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    /* Sidebar slides in as overlay */
+    .sidebar {
+      position: fixed !important;
+      left: -110% !important;
+      top: 0 !important;
+      width: min(280px, 85vw) !important;
+      height: 100dvh !important;
+      overflow-y: auto !important;
+      z-index: 300 !important;
+      transition: left 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+      box-shadow: 8px 0 32px rgba(0,0,0,0.6);
+    }
+    .sidebar.open { left: 0 !important; }
+
+    /* Main takes full width, natural scroll */
+    .main {
+      display: block !important;
+      width: 100% !important;
+      height: auto !important;
+      min-height: calc(100vh - 53px) !important;
+      overflow-y: visible !important;
+    }
+
+    /* AI panel full-width on mobile */
+    .ai-panel {
+      width: 100vw !important;
+      right: -110vw !important;
+    }
+    .ai-panel.open { right: 0 !important; }
+    .mobile-ai-toggle { display: inline-flex !important; }
+
+    /* Header */
+    .header { padding: 10px 14px; gap: 8px; }
+    .header-left { gap: 10px; }
+    .logo { font-size: 14px; letter-spacing: 2px; }
+    .header-status { display: none; }
+    .mobile-nav-toggle { display: inline-flex; align-items: center; }
+    #lastUpdate { display: none; }
+    .btn { padding: 6px 10px; font-size: 10px; }
+    #autoRefreshBtn { display: none; }
+
+    /* Tabs */
+    .tabs {
+      padding: 0 8px;
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: none;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { padding: 10px 14px; font-size: 10px; }
+
+    /* Panel */
+    .panel { padding: 12px; }
+
+    /* KPI grid */
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .kpi-value { font-size: 20px; }
+
+    /* Charts */
+    .chart-grid { grid-template-columns: 1fr; }
+
+    /* Patterns */
+    .pattern-grid { grid-template-columns: 1fr; }
+
+    /* Filter bar */
+    .filter-bar { padding: 8px 12px; gap: 6px; }
+    .filter-select, .filter-input { font-size: 11px; padding: 5px 8px; max-width: 100%; }
+    .filter-input { width: 100px; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { font-size: 11px; }
+    tbody td, thead th { padding: 6px 8px; }
+
+    /* Player rows */
+    .player-grid { overflow-x: auto; }
+    .player-row {
+      grid-template-columns: 55px 90px 55px 55px 55px 70px 1fr;
+      font-size: 10px;
+      padding: 8px 10px;
+      min-width: 520px;
+    }
+
+    /* Streaks, bars */
+    .streak-grid { grid-template-columns: 1fr 1fr; }
+    .streak-n { font-size: 22px; }
+    .bar-label { width: 55px; font-size: 10px; }
+
+    /* Pagination */
+    .pagination { padding: 10px 12px; flex-wrap: wrap; gap: 6px; }
+
+    /* Show sidebar close button */
+    .sidebar-close { display: flex !important; }
+  }
+
+  @media (max-width: 400px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .kpi-value { font-size: 18px; }
+    .kpi-label { font-size: 9px; }
+    .logo { font-size: 12px; letter-spacing: 1px; }
+    .tab { padding: 8px 10px; }
+  }
+
+  /* Sidebar close button (hidden on desktop) */
+  .sidebar-close {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .sidebar-close-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 8px;
+  }
+  .sidebar-close-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* AI panel close button */
+  .ai-close-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    margin-left: auto;
+    font-family: var(--font-mono);
+  }
+  @media (max-width: 900px) {
+    .ai-close-btn { display: block; }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ── AUTH SCREEN ── -->
+<div id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo">TENSURA <span>//</span> INTEL</div>
+    <div class="auth-subtitle">Restricted Access — Authenticate</div>
+
+    <div class="auth-field">
+      <label>Username</label>
+      <input type="text" id="authUser" placeholder="Enter username" autocomplete="off" onkeydown="authKey(event)">
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="authPass" placeholder="Enter password" onkeydown="authKey(event)">
+    </div>
+
+    <div class="auth-error" id="authError"></div>
+
+    <button class="auth-submit" onclick="attemptLogin()">▶ ACCESS SYSTEM</button>
+    <button class="auth-not-xavier" onclick="showGuestModal()">I'm not Xavier</button>
+  </div>
+</div>
+
+<!-- ── GUEST MODAL ── -->
+<div id="guestModal" class="hidden">
+  <div class="guest-modal-box">
+    <div class="guest-modal-title">⚠ Guest Access</div>
+    <div class="guest-modal-sub">One Shot Only</div>
+    <div class="guest-modal-body">
+      You are not the authorised user. You will receive <strong style="color:var(--accent)">exactly one AI response</strong>. After that, the analyst will go silent.
+    </div>
+    <div class="guest-modal-hint">
+      <strong>🎰 Want to identify yourself?</strong><br>
+      Place a bet in the GC, then check the <strong>Players tab</strong> to find your <strong>Player ID</strong>. Share it with Xavier to get full access.
+    </div>
+    <div class="guest-modal-btns">
+      <button class="guest-accept-btn" onclick="acceptGuest()">✓ I UNDERSTAND — ONE SHOT</button>
+      <button class="guest-cancel-btn" onclick="closeGuestModal()">← BACK</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <button class="mobile-nav-toggle" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+    <div class="logo">TENSURA <span>//</span> INTEL</div>
+    <div class="header-status">
+      <div class="pulse" id="connDot"></div>
+      <span id="connStatus">CONNECTING...</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span style="font-size:10px;color:var(--text-dim)" id="lastUpdate">--</span>
+    <button class="btn" onclick="loadAll()">↻ REFRESH</button>
+    <button class="btn active" id="autoRefreshBtn" onclick="toggleAutoRefresh()">AUTO: ON</button>
+    <button class="mobile-ai-toggle" onclick="toggleAiPanel()">⬡ AI</button>
+  </div>
+</div>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="mainSidebar">
+    <div class="sidebar-close" id="sidebarCloseBar">
+      <span style="font-family:var(--font-display);font-size:12px;letter-spacing:2px;color:var(--accent)">MENU</span>
+      <button class="sidebar-close-btn" onclick="closeSidebar()">✕</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Navigation</div>
+      <div class="nav-item active" onclick="switchTab('overview')">◈ Overview</div>
+      <div class="nav-item" onclick="switchTab('bets')">◈ All Bets</div>
+      <div class="nav-item" onclick="switchTab('players')">◈ Players</div>
+      <div class="nav-item" onclick="switchTab('patterns')">◈ Patterns</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">GC Filter</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <div class="gc-pill active" data-gc="all" onclick="setGcFilter('all')">ALL</div>
+        <div class="gc-pill" data-gc="gc1" onclick="setGcFilter('gc1')">GC1</div>
+        <div class="gc-pill" data-gc="gc2" onclick="setGcFilter('gc2')">GC2</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Live Stats</div>
+      <div id="sidebarStats">
+        <div class="stat-mini"><span class="stat-mini-label">Total Bets</span><span class="stat-mini-val" id="sb-total">--</span></div>
+        <div class="stat-mini"><span class="stat-mini-label">Win Rate</span><span class="stat-mini-val green" id="sb-wr">--</span></div>
+        <div class="stat-mini"><span class="stat-mini-label">Total Wagered</span><span class="stat-mini-val" id="sb-wagered">--</span></div>
+        <div class="stat-mini"><span class="stat-mini-label">Net Delta</span><span class="stat-mini-val" id="sb-delta">--</span></div>
+        <div class="stat-mini"><span class="stat-mini-label">Pending</span><span class="stat-mini-val yellow" id="sb-pending">--</span></div>
+        <div class="stat-mini"><span class="stat-mini-label">Players</span><span class="stat-mini-val" id="sb-players">--</span></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Current Hour</div>
+      <div id="currentHourStats" style="font-size:11px;color:var(--text-dim)">--</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active" data-tab="overview" onclick="switchTab('overview')">OVERVIEW</div>
+      <div class="tab" data-tab="bets" onclick="switchTab('bets')">BETS</div>
+      <div class="tab" data-tab="players" onclick="switchTab('players')">PLAYERS</div>
+      <div class="tab" data-tab="patterns" onclick="switchTab('patterns')">PATTERNS</div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="panel active" id="panel-overview">
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="loading"><div class="spinner"></div>LOADING...</div>
+      </div>
+      <div class="chart-grid" id="chartGrid"></div>
+      <div id="signalBox"></div>
+    </div>
+
+    <!-- BETS -->
+    <div class="panel" id="panel-bets">
+      <div class="filter-bar">
+        <select class="filter-select" id="filterStatus" onchange="renderBetsTable()">
+          <option value="">ALL STATUS</option>
+          <option value="win">WIN</option>
+          <option value="loss">LOSS</option>
+          <option value="pending">PENDING</option>
+          <option value="incomplete">INCOMPLETE</option>
+        </select>
+        <select class="filter-select" id="filterGame" onchange="renderBetsTable()">
+          <option value="">ALL GAMES</option>
+          <option value="casino">CASINO</option>
+          <option value="slots">SLOTS</option>
+          <option value="coinflip">COINFLIP</option>
+          <option value="roulette">ROULETTE</option>
+          <option value="dice">DICE</option>
+          <option value="dicebattle">DICEBATTLE</option>
+        </select>
+        <input class="filter-input" id="filterPlayer" placeholder="PLAYER ID..." oninput="renderBetsTable()" style="width:120px">
+        <span style="color:var(--text-dim);font-size:10px;letter-spacing:1px" id="betsCount">-- bets</span>
+      </div>
+      <div class="table-wrap" id="betsTableWrap">
+        <div class="loading"><div class="spinner"></div>LOADING...</div>
+      </div>
+      <div class="pagination" id="betsPagination"></div>
+    </div>
+
+    <!-- PLAYERS -->
+    <div class="panel" id="panel-players">
+      <div id="playersContent">
+        <div class="loading"><div class="spinner"></div>LOADING...</div>
+      </div>
+    </div>
+
+    <!-- PATTERNS -->
+    <div class="panel" id="panel-patterns">
+      <div id="patternsContent">
+        <div class="loading"><div class="spinner"></div>LOADING...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- AI PANEL -->
+  <div class="ai-panel" id="aiPanelEl" style="position:relative">
+    <div id="guestLockBanner">⚠ GUEST MODE — AI LOCKED AFTER ONE REPLY</div>
+    <div class="ai-header">
+      <div>
+        <div class="ai-name">⬡ CLAUDE</div>
+        <div class="ai-subtitle">PATTERN ANALYST // HELL-BENT MODE</div>
+      </div>
+      <button class="ai-close-btn" onclick="closeAiPanel()">✕</button>
+    </div>
+    <div class="ai-messages" id="aiMessages">
+      <div class="ai-msg system">
+        <div class="ai-msg-label">System</div>
+        Connect me to your data and I'll tear through every pattern, streak, timing edge, and behavioural tell in the GC. Ask me anything or hit a quick analysis below.
+      </div>
+    </div>
+    <div class="ai-input-area">
+      <div class="ai-quick-btns" id="quickBtns">
+        <button class="quick-btn" onclick="quickAsk('full_analysis')">⚡ FULL ANALYSIS</button>
+        <button class="quick-btn" onclick="quickAsk('best_time')">🕐 BEST TIME TO PLAY</button>
+        <button class="quick-btn" onclick="quickAsk('streak_strategy')">🔥 STREAK STRATEGY</button>
+        <button class="quick-btn" onclick="quickAsk('game_edge')">🎰 GAME EDGES</button>
+        <button class="quick-btn" onclick="quickAsk('danger_signs')">⚠️ DANGER SIGNS</button>
+        <button class="quick-btn" onclick="quickAsk('hot_players')">👑 HOT PLAYERS</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <textarea class="ai-input" id="aiInput" placeholder="Ask anything about the patterns..." onkeydown="handleAiKey(event)"></textarea>
+        <button class="btn active" style="height:60px;width:50px;font-size:16px" onclick="sendAiMessage()">→</button>
+      </div>
+    </div>
+    <!-- Locked overlay (shown after guest uses their 1 shot) -->
+    <div class="ai-locked-overlay hidden" id="aiLockedOverlay">
+      <div class="ai-locked-msg">
+        <strong>AI LOCKED</strong>
+        You've used your one guest query. Place a bet & check the Players tab to find your Player ID, then contact Xavier for full access.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://khanjefntlxhtfpezmqh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoYW5qZWZudGx4aHRmcGV6bXFoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzE0NTMxMCwiZXhwIjoyMDg4NzIxMzEwfQ.ApHKmG7uXTQeEzygTiIqbTOk72Iv7QV-5Vh5-rksKfs';
+const CLAUDE_KEY  = 'sk-ant-api03-placeholder'; // replace with your key if self-hosting
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AUTH + DEVICE FINGERPRINTING
+// Strategy: build a stable device fingerprint from ~10 browser signals,
+// hash it, then persist the "guest used" flag across:
+//   1. localStorage  (primary)
+//   2. sessionStorage (tab-level backup)
+//   3. IndexedDB      (survives localStorage.clear())
+//   4. document.cookie (survives both of the above)
+//   5. Cache API      (service-worker-level persistence)
+// A guest is considered "spent" if ANY store says so for their fingerprint.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const AUTH_USER = 'Xavier';
+const AUTH_PASS = '07049628148X';
+const STORE_KEY_PREFIX = 'tns_g_'; // tensura guest
+const IDB_DB  = 'tensura_auth';
+const IDB_STORE = 'flags';
+const CACHE_NAME = 'tns-auth-v1';
+
+let accessLevel = null;   // 'xavier' | 'guest' | null
+let guestUsed   = false;
+let deviceFP    = null;   // resolved async on page load
+
+// ── 1. FINGERPRINT BUILDER ────────────────────────────────────────────────────
+async function buildFingerprint() {
+  const nav = window.navigator;
+  const scr = window.screen;
+
+  // Collect stable, non-permission signals
+  const signals = [
+    nav.userAgent,
+    nav.language,
+    nav.languages ? nav.languages.join(',') : '',
+    nav.platform || '',
+    nav.hardwareConcurrency || 0,
+    nav.deviceMemory || 0,
+    scr.width + 'x' + scr.height,
+    scr.colorDepth,
+    scr.pixelDepth,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    (nav.plugins ? Array.from(nav.plugins).map(p => p.name).sort().join('|') : ''),
+  ];
+
+  // Canvas fingerprint (no permission needed, very stable per device/browser)
+  try {
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px "Arial"';
+    ctx.fillStyle = '#00ff88';
+    ctx.fillText('tensura-fp-2025', 2, 2);
+    ctx.fillStyle = 'rgba(255,68,102,0.7)';
+    ctx.fillRect(10, 1, 62, 20);
+    signals.push(c.toDataURL());
+  } catch(e) {}
+
+  // AudioContext fingerprint (very distinctive per hardware/OS)
+  try {
+    const ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
+    const osc = ac.createOscillator();
+    const analyser = ac.createAnalyser();
+    const gain = ac.createGain();
+    gain.gain.value = 0;
+    osc.connect(analyser);
+    analyser.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(0);
+    const buf = await ac.startRendering();
+    const audioFP = buf.getChannelData(0).slice(4500, 4600).reduce((a,v) => a + Math.abs(v), 0).toString();
+    signals.push(audioFP);
+  } catch(e) {}
+
+  // WebGL renderer string (GPU-level identifier)
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    const dbgInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbgInfo) {
+      signals.push(gl.getParameter(dbgInfo.UNMASKED_VENDOR_WEBGL));
+      signals.push(gl.getParameter(dbgInfo.UNMASKED_RENDERER_WEBGL));
+    }
+  } catch(e) {}
+
+  const raw = signals.join('|||');
+  return await sha256(raw);
+}
+
+async function sha256(str) {
+  const buf = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ── 2. MULTI-LAYER PERSISTENCE ────────────────────────────────────────────────
+
+function lsKey(fp) { return STORE_KEY_PREFIX + fp.slice(0, 16); }
+function cookieKey(fp) { return STORE_KEY_PREFIX + fp.slice(0, 16); }
+
+// localStorage
+function lsSet(fp) {
+  try { localStorage.setItem(lsKey(fp), '1'); } catch(e) {}
+}
+function lsGet(fp) {
+  try { return localStorage.getItem(lsKey(fp)) === '1'; } catch(e) { return false; }
+}
+
+// sessionStorage (same key schema, different store)
+function ssSet(fp) {
+  try { sessionStorage.setItem(lsKey(fp), '1'); } catch(e) {}
+}
+function ssGet(fp) {
+  try { return sessionStorage.getItem(lsKey(fp)) === '1'; } catch(e) { return false; }
+}
+
+// Cookie (expires 5 years)
+function cookieSet(fp) {
+  try {
+    const exp = new Date(Date.now() + 5 * 365 * 24 * 3600 * 1000).toUTCString();
+    document.cookie = `${cookieKey(fp)}=1; expires=${exp}; path=/; SameSite=Strict`;
+  } catch(e) {}
+}
+function cookieGet(fp) {
+  try {
+    return document.cookie.split(';').some(c => c.trim().startsWith(cookieKey(fp) + '=1'));
+  } catch(e) { return false; }
+}
+
+// IndexedDB
+function idbSet(fp) {
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open(IDB_DB, 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+      req.onsuccess = e => {
+        const tx = e.target.result.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put('1', lsKey(fp));
+        tx.oncomplete = resolve;
+        tx.onerror = resolve;
+      };
+      req.onerror = resolve;
+    } catch(e) { resolve(); }
+  });
+}
+function idbGet(fp) {
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open(IDB_DB, 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+      req.onsuccess = e => {
+        const tx = e.target.result.transaction(IDB_STORE, 'readonly');
+        const get = tx.objectStore(IDB_STORE).get(lsKey(fp));
+        get.onsuccess = () => resolve(get.result === '1');
+        get.onerror = () => resolve(false);
+      };
+      req.onerror = () => resolve(false);
+    } catch(e) { resolve(false); }
+  });
+}
+
+// Cache API
+async function cacheSet(fp) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(new Request('https://tns-auth/' + lsKey(fp)), new Response('1'));
+  } catch(e) {}
+}
+async function cacheGet(fp) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const match = await cache.match(new Request('https://tns-auth/' + lsKey(fp)));
+    return !!match;
+  } catch(e) { return false; }
+}
+
+// ── 3. COMBINED CHECK / WRITE ─────────────────────────────────────────────────
+
+async function isGuestSpent(fp) {
+  if (lsGet(fp))   return true;
+  if (ssGet(fp))   return true;
+  if (cookieGet(fp)) return true;
+  if (await idbGet(fp)) return true;
+  if (await cacheGet(fp)) return true;
+  return false;
+}
+
+async function markGuestSpent(fp) {
+  lsSet(fp);
+  ssSet(fp);
+  cookieSet(fp);
+  await idbSet(fp);
+  await cacheSet(fp);
+}
+
+// ── 4. AUTH FLOW ──────────────────────────────────────────────────────────────
+
+function attemptLogin() {
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value;
+  const errEl = document.getElementById('authError');
+
+  if (u === AUTH_USER && p === AUTH_PASS) {
+    accessLevel = 'xavier';
+    document.getElementById('authScreen').classList.add('hidden');
+    errEl.textContent = '';
+  } else {
+    errEl.textContent = '✕ Invalid credentials.';
+    document.getElementById('authUser').classList.add('error');
+    document.getElementById('authPass').classList.add('error');
+    setTimeout(() => {
+      document.getElementById('authUser').classList.remove('error');
+      document.getElementById('authPass').classList.remove('error');
+    }, 1200);
+  }
+}
+
+function authKey(e) {
+  if (e.key === 'Enter') attemptLogin();
+}
+
+function showGuestModal() {
+  document.getElementById('guestModal').classList.remove('hidden');
+}
+
+function closeGuestModal() {
+  document.getElementById('guestModal').classList.add('hidden');
+}
+
+async function acceptGuest() {
+  // Check if this device has already spent its shot BEFORE letting them in
+  const spent = await isGuestSpent(deviceFP);
+  if (spent) {
+    // Already burned — show locked state immediately
+    accessLevel = 'guest';
+    guestUsed = true;
+    document.getElementById('guestModal').classList.add('hidden');
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('guestLockBanner').classList.add('visible');
+    enforceGuestLock();
+    // Override the system message
+    const msgsEl = document.getElementById('aiMessages');
+    msgsEl.innerHTML = `
+      <div class="ai-msg system">
+        <div class="ai-msg-label">System</div>
+        <span style="color:var(--loss);font-weight:700">DEVICE RECOGNISED.</span><br>
+        You have already used your one guest query on this device. The AI will not respond again.<br><br>
+        <span style="color:var(--text-dim)">To get full access: place a bet in the GC → check the <strong style="color:var(--accent3)">Players tab</strong> → find your Player ID → contact Xavier.</span>
+      </div>`;
+    return;
+  }
+
+  accessLevel = 'guest';
+  guestUsed = false;
+  document.getElementById('guestModal').classList.add('hidden');
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('guestLockBanner').classList.add('visible');
+}
+
+function enforceGuestLock() {
+  if (accessLevel === 'guest' && guestUsed) {
+    document.getElementById('aiLockedOverlay').classList.remove('hidden');
+    document.getElementById('aiInput').disabled = true;
+    document.getElementById('aiInput').placeholder = 'AI locked — guest limit reached.';
+    document.querySelectorAll('.quick-btn').forEach(b => b.disabled = true);
+    return true;
+  }
+  return false;
+}
+
+// ── 5. INIT FINGERPRINT ON PAGE LOAD ─────────────────────────────────────────
+(async () => {
+  deviceFP = await buildFingerprint();
+})();
+
+
+const VIP_PHONE = '2348122849070'; // highlighted in gold throughout
+let vipPlayerId = null; // resolved after players load
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let allBets = [], allPlayers = [];
+let gcFilter = 'all';
+let betsPage = 0;
+const PAGE_SIZE = 60;
+let autoRefresh = true;
+let autoRefreshTimer = null;
+let currentTab = 'overview';
+
+// ── SUPABASE FETCH ────────────────────────────────────────────────────────────
+async function sbFetch(table, query = '') {
+  const url = `${SUPABASE_URL}/rest/v1/${table}?${query}&limit=2000`;
+  const res = await fetch(url, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Prefer': 'count=exact'
+    }
+  });
+  if (!res.ok) throw new Error(`Supabase error: ${res.status}`);
+  return res.json();
+}
+
+async function loadAll() {
+  try {
+    document.getElementById('connDot').className = 'pulse';
+    document.getElementById('connStatus').textContent = 'SYNCING...';
+
+    const [bets, players] = await Promise.all([
+      sbFetch('tensura_bets', 'select=*&order=bet_time.desc'),
+      sbFetch('tensura_players', 'select=*')
+    ]);
+
+    allBets = bets;
+    allPlayers = players;
+
+    // Resolve VIP player ID from phone number
+    const vipPlayer = allPlayers.find(p => p.phone === VIP_PHONE);
+    vipPlayerId = vipPlayer?.id || null;
+
+    document.getElementById('connDot').className = 'pulse';
+    document.getElementById('connStatus').textContent = 'LIVE';
+    document.getElementById('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+    updateSidebar();
+    if (currentTab === 'overview') renderOverview();
+    else if (currentTab === 'bets') renderBetsTable();
+    else if (currentTab === 'players') renderPlayers();
+    else if (currentTab === 'patterns') renderPatterns();
+
+  } catch (e) {
+    document.getElementById('connDot').className = 'pulse offline';
+    document.getElementById('connStatus').textContent = 'ERROR: ' + e.message;
+    console.error(e);
+  }
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────────
+function filteredBets() {
+  if (gcFilter === 'all') return allBets;
+  return allBets.filter(b => b.gc === gcFilter);
+}
+
+function resolvedBets() {
+  return filteredBets().filter(b => b.status === 'win' || b.status === 'loss');
+}
+
+function setGcFilter(gc) {
+  gcFilter = gc;
+  document.querySelectorAll('.gc-pill').forEach(p => p.classList.toggle('active', p.dataset.gc === gc));
+  updateSidebar();
+  if (currentTab === 'overview') renderOverview();
+  else if (currentTab === 'bets') renderBetsTable();
+  else if (currentTab === 'players') renderPlayers();
+  else if (currentTab === 'patterns') renderPatterns();
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────────────────────────
+function updateSidebar() {
+  const bets = filteredBets();
+  const res = resolvedBets();
+  const wins = res.filter(b => b.status === 'win');
+  const wr = res.length ? (wins.length / res.length * 100).toFixed(1) : 0;
+  const wagered = res.reduce((s, b) => s + (parseInt(b.bet_amount) || 0), 0);
+  const delta = res.reduce((s, b) => s + (parseInt(b.amount_delta) || 0), 0);
+  const pending = bets.filter(b => b.status === 'pending').length;
+
+  document.getElementById('sb-total').textContent = bets.length;
+  document.getElementById('sb-wr').textContent = wr + '%';
+  document.getElementById('sb-wagered').textContent = fmtNum(wagered);
+  document.getElementById('sb-delta').textContent = (delta >= 0 ? '+' : '') + fmtNum(delta);
+  document.getElementById('sb-delta').className = 'stat-mini-val ' + (delta >= 0 ? 'green' : 'red');
+  document.getElementById('sb-pending').textContent = pending;
+  document.getElementById('sb-players').textContent = allPlayers.length;
+
+  // Current hour stats
+  const h = new Date().getUTCHours();
+  const thisHour = res.filter(b => new Date(b.bet_time).getUTCHours() === h);
+  const hwins = thisHour.filter(b => b.status === 'win');
+  const hwr = thisHour.length ? (hwins.length / thisHour.length * 100).toFixed(0) : '--';
+  document.getElementById('currentHourStats').innerHTML =
+    `<span style="color:var(--text)">${h}:00 UTC</span><br>` +
+    `${hwins.length}W / ${thisHour.length - hwins.length}L<br>` +
+    `<span style="color:${parseFloat(hwr) >= 55 ? 'var(--win)' : parseFloat(hwr) < 45 ? 'var(--loss)' : 'var(--pending)'}">` +
+    `${hwr}% win rate</span>`;
+}
+
+// ── OVERVIEW ──────────────────────────────────────────────────────────────────
+function renderOverview() {
+  const res = resolvedBets();
+  const wins = res.filter(b => b.status === 'win');
+  const losses = res.filter(b => b.status === 'loss');
+  const wr = res.length ? (wins.length / res.length * 100).toFixed(1) : 0;
+  const wagered = res.reduce((s, b) => s + (parseInt(b.bet_amount) || 0), 0);
+  const delta = res.reduce((s, b) => s + (parseInt(b.amount_delta) || 0), 0);
+  const pending = filteredBets().filter(b => b.status === 'pending').length;
+  const incomplete = filteredBets().filter(b => b.status === 'incomplete').length;
+
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Win Rate</div>
+      <div class="kpi-value" style="color:${parseFloat(wr)>=55?'var(--win)':parseFloat(wr)<45?'var(--loss)':'var(--pending)'}">${wr}%</div>
+      <div class="kpi-sub">${wins.length}W / ${losses.length}L of ${res.length} resolved</div>
+    </div>
+    <div class="kpi-card ${delta >= 0 ? '' : 'red'}">
+      <div class="kpi-label">Net Delta</div>
+      <div class="kpi-value" style="color:${delta>=0?'var(--win)':'var(--loss)'}">${delta>=0?'+':''}${fmtNum(delta)}</div>
+      <div class="kpi-sub">Total wagered: ${fmtNum(wagered)}</div>
+    </div>
+    <div class="kpi-card yellow">
+      <div class="kpi-label">Pending / Incomplete</div>
+      <div class="kpi-value" style="color:var(--pending)">${pending}</div>
+      <div class="kpi-sub">${incomplete} incomplete</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Total Players</div>
+      <div class="kpi-value" style="color:var(--accent4)">${allPlayers.length}</div>
+      <div class="kpi-sub">${filteredBets().length} total bets logged</div>
+    </div>
+  `;
+
+  // Charts
+  const byGame = groupBy(res, 'game');
+  const gameHtml = Object.entries(byGame).sort((a,b) => b[1].length - a[1].length).map(([game, bets]) => {
+    const w = bets.filter(b=>b.status==='win').length;
+    const t = bets.length;
+    const pct = (w/t*100).toFixed(0);
+    const isGood = parseFloat(pct) >= 55;
+    return `<div class="bar-row">
+      <div class="bar-label">${game.toUpperCase()}</div>
+      <div class="bar-track">
+        <div class="bar-fill ${isGood?'':'loss'}" style="width:${pct}%">
+          ${pct > 20 ? `<span class="bar-pct">${pct}%</span>` : ''}
+        </div>
+        ${pct <= 20 ? `<span class="bar-pct outside">${pct}%</span>` : ''}
+      </div>
+      <div class="bar-count">${t} bets</div>
+    </div>`;
+  }).join('');
+
+  // By hour
+  const byHour = {};
+  for (let h = 17; h <= 22; h++) byHour[h] = {w:0,l:0};
+  res.forEach(b => {
+    const h = new Date(b.bet_time).getUTCHours();
+    if (byHour[h]) byHour[h][b.status==='win'?'w':'l']++;
+  });
+  const hourHtml = Object.entries(byHour).map(([h, v]) => {
+    const t = v.w + v.l;
+    if (!t) return '';
+    const pct = (v.w/t*100).toFixed(0);
+    const isGood = parseFloat(pct) >= 60;
+    return `<div class="bar-row">
+      <div class="bar-label">${h}:00</div>
+      <div class="bar-track">
+        <div class="bar-fill ${isGood?'':'loss'}" style="width:${pct}%">
+          ${pct > 15 ? `<span class="bar-pct">${pct}%</span>` : ''}
+        </div>
+        ${pct <= 15 ? `<span class="bar-pct outside">${pct}%</span>` : ''}
+      </div>
+      <div class="bar-count">${t}</div>
+    </div>`;
+  }).join('');
+
+  // Streak analysis
+  const streakData = computeStreakData(res);
+
+  document.getElementById('chartGrid').innerHTML = `
+    <div class="chart-box">
+      <div class="chart-title">Win Rate by Game</div>
+      ${gameHtml || '<div style="color:var(--text-dim);font-size:11px">No data</div>'}
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Win Rate by Hour (UTC)</div>
+      ${hourHtml || '<div style="color:var(--text-dim);font-size:11px">No data</div>'}
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">After N Consecutive Losses</div>
+      ${streakData.lossHtml}
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">After N Consecutive Wins</div>
+      ${streakData.winHtml}
+    </div>
+  `;
+
+  // Signal boxes
+  const signals = generateSignals(res, byHour);
+  document.getElementById('signalBox').innerHTML = `
+    <div style="font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:10px">Live Signals</div>
+    ${signals.map(s => `
+      <div class="signal-box ${s.type}">
+        <div class="signal-icon">${s.icon}</div>
+        <div class="signal-text">
+          <div class="signal-title">${s.title}</div>
+          <div class="signal-desc">${s.desc}</div>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function computeStreakData(res) {
+  const byPlayer = {};
+  [...res].sort((a,b) => new Date(a.bet_time)-new Date(b.bet_time)).forEach(b => {
+    if (!byPlayer[b.player_id]) byPlayer[b.player_id] = [];
+    byPlayer[b.player_id].push(b);
+  });
+
+  const afterLoss = {}, afterWin = {};
+  for (const seq of Object.values(byPlayer)) {
+    for (let i = 1; i < seq.length; i++) {
+      let lossStreak = 0, winStreak = 0;
+      for (let j = i-1; j >= 0; j--) {
+        if (seq[j].status === 'loss') lossStreak++; else break;
+      }
+      for (let j = i-1; j >= 0; j--) {
+        if (seq[j].status === 'win') winStreak++; else break;
+      }
+      if (lossStreak > 0) {
+        if (!afterLoss[lossStreak]) afterLoss[lossStreak] = {w:0,l:0};
+        afterLoss[lossStreak][seq[i].status==='win'?'w':'l']++;
+      }
+      if (winStreak > 0) {
+        if (!afterWin[winStreak]) afterWin[winStreak] = {w:0,l:0};
+        afterWin[winStreak][seq[i].status==='win'?'w':'l']++;
+      }
+    }
+  }
+
+  const makeHtml = (data) => Object.entries(data).sort((a,b)=>parseInt(a)-parseInt(b)).map(([n, v]) => {
+    const t = v.w+v.l;
+    const pct = (v.w/t*100).toFixed(0);
+    return `<div class="bar-row">
+      <div class="bar-label">After ${n}×</div>
+      <div class="bar-track">
+        <div class="bar-fill ${parseFloat(pct)>=55?'':'loss'}" style="width:${pct}%">
+          ${pct > 20 ? `<span class="bar-pct">${pct}%</span>` : ''}
+        </div>
+        ${pct <= 20 ? `<span class="bar-pct outside">${pct}%</span>` : ''}
+      </div>
+      <div class="bar-count">${t}</div>
+    </div>`;
+  }).join('') || '<div style="color:var(--text-dim);font-size:11px">Insufficient data</div>';
+
+  return { lossHtml: makeHtml(afterLoss), winHtml: makeHtml(afterWin), afterLoss, afterWin };
+}
+
+function generateSignals(res, byHour) {
+  const signals = [];
+  const h = new Date().getUTCHours();
+  const curHour = byHour[h];
+  if (curHour && (curHour.w + curHour.l) >= 3) {
+    const pct = curHour.w / (curHour.w + curHour.l) * 100;
+    if (pct >= 60) signals.push({ type: 'hot', icon: '🔥', title: `HOT HOUR — ${h}:00 UTC`, desc: `${pct.toFixed(0)}% win rate this hour (${curHour.w}W/${curHour.l}L). Good time to play.` });
+    else if (pct < 40) signals.push({ type: 'cold', icon: '❄️', title: `COLD HOUR — ${h}:00 UTC`, desc: `Only ${pct.toFixed(0)}% win rate this hour. Consider waiting.` });
+  }
+
+  const casinoBets = res.filter(b => b.game === 'casino');
+  const casinoW = casinoBets.filter(b => b.status === 'win').length;
+  if (casinoBets.length >= 5) {
+    const pct = (casinoW / casinoBets.length * 100).toFixed(0);
+    signals.push({ type: parseFloat(pct) >= 60 ? 'hot' : 'warn', icon: '🎰', title: `CASINO: ${pct}% WIN RATE`, desc: `Best game overall. ${casinoW}W/${casinoBets.length-casinoW}L across all data.` });
+  }
+
+  const rouletteBets = res.filter(b => b.game === 'roulette');
+  if (rouletteBets.length >= 3) {
+    const pct = (rouletteBets.filter(b=>b.status==='win').length / rouletteBets.length * 100).toFixed(0);
+    if (parseFloat(pct) < 45) signals.push({ type: 'cold', icon: '🚫', title: `AVOID ROULETTE`, desc: `Only ${pct}% win rate on roulette. Worst performing game in the data.` });
+  }
+
+  const recentRes = res.slice(0, 20);
+  const recentWr = recentRes.filter(b=>b.status==='win').length / (recentRes.length || 1) * 100;
+  if (recentRes.length >= 10) {
+    if (recentWr >= 65) signals.push({ type: 'hot', icon: '📈', title: 'HOT STREAK IN GC', desc: `Last 20 resolved bets: ${recentWr.toFixed(0)}% win rate. GC is running hot right now.` });
+    else if (recentWr < 40) signals.push({ type: 'warn', icon: '📉', title: 'COLD STREAK IN GC', desc: `Last 20 resolved bets: ${recentWr.toFixed(0)}% win rate. GC is running cold.` });
+  }
+
+  if (!signals.length) signals.push({ type: 'warn', icon: '📊', title: 'NEUTRAL CONDITIONS', desc: 'No strong signals right now. Check back after more bets resolve.' });
+  return signals;
+}
+
+// ── BETS TABLE ────────────────────────────────────────────────────────────────
+function renderBetsTable() {
+  let bets = filteredBets();
+  const status = document.getElementById('filterStatus').value;
+  const game = document.getElementById('filterGame').value;
+  const player = document.getElementById('filterPlayer').value.trim().toUpperCase();
+
+  if (status) bets = bets.filter(b => b.status === status);
+  if (game) bets = bets.filter(b => b.game === game);
+  if (player) bets = bets.filter(b => b.player_id.toUpperCase().includes(player));
+
+  document.getElementById('betsCount').textContent = bets.length + ' bets';
+
+  const totalPages = Math.ceil(bets.length / PAGE_SIZE);
+  if (betsPage >= totalPages) betsPage = Math.max(0, totalPages - 1);
+  const pageBets = bets.slice(betsPage * PAGE_SIZE, (betsPage + 1) * PAGE_SIZE);
+
+  const rows = pageBets.map(b => {
+    const delta = parseInt(b.amount_delta) || 0;
+    const dStr = b.amount_delta != null ? `<span class="${delta>=0?'delta-pos':'delta-neg'}">${delta>=0?'+':''}${fmtNum(delta)}</span>` : '—';
+    const timeStr = b.bet_time ? new Date(b.bet_time).toLocaleTimeString() : '--';
+    const isVip = vipPlayerId && b.player_id === vipPlayerId;
+    return `<tr${isVip ? ' class="vip-row"' : ''}>
+      <td><span class="${isVip ? 'vip-id' : ''}">${isVip ? '<span class="vip-crown">♛</span>' : ''}${b.player_id}</span></td>
+      <td><span class="game-tag">${b.game?.toUpperCase()}</span></td>
+      <td>${fmtNum(parseInt(b.bet_amount)||0)}</td>
+      <td>${dStr}</td>
+      <td><span class="status-badge ${b.status}">${b.status?.toUpperCase()}</span></td>
+      <td>${b.gc?.toUpperCase()}</td>
+      <td>${timeStr}</td>
+      <td>${b.interval_seconds ? b.interval_seconds+'s' : '—'}</td>
+      <td>${b.late_resolve?'<span style="color:var(--pending)">LATE</span>':''}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('betsTableWrap').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Player</th><th>Game</th><th>Bet</th><th>Delta</th><th>Status</th><th>GC</th><th>Time</th><th>Interval</th><th>Flags</th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="9" style="color:var(--text-dim);text-align:center;padding:20px">No bets found</td></tr>'}</tbody>
+    </table>
+  `;
+
+  // pagination
+  let pHtml = `<span>${bets.length} results</span>`;
+  for (let i = 0; i < totalPages; i++) {
+    pHtml += `<button class="page-btn ${i===betsPage?'active':''}" onclick="betsPage=${i};renderBetsTable()">${i+1}</button>`;
+    if (totalPages > 10 && i === 2 && betsPage < totalPages-3) { pHtml += '...'; i = totalPages - 4; }
+  }
+  document.getElementById('betsPagination').innerHTML = pHtml;
+}
+
+// ── PLAYERS ───────────────────────────────────────────────────────────────────
+function renderPlayers() {
+  const res = resolvedBets();
+  const stats = {};
+
+  res.forEach(b => {
+    if (!stats[b.player_id]) stats[b.player_id] = { w:0, l:0, wagered:0, delta:0, gc1:0, gc2:0, lastBet:null };
+    const s = stats[b.player_id];
+    s[b.status==='win'?'w':'l']++;
+    s.wagered += parseInt(b.bet_amount)||0;
+    s.delta += parseInt(b.amount_delta)||0;
+    s[b.gc]++;
+    if (!s.lastBet || new Date(b.bet_time) > new Date(s.lastBet)) s.lastBet = b.bet_time;
+  });
+
+  const rows = Object.entries(stats)
+    .sort((a,b) => b[1].wagered - a[1].wagered)
+    .map(([pid, s]) => {
+      const t = s.w + s.l;
+      const wr = t ? (s.w/t*100).toFixed(0) : 0;
+      const player = allPlayers.find(p => p.id === pid);
+      const roi = s.wagered ? (s.delta/s.wagered*100).toFixed(0) : 0;
+      const isVip = vipPlayerId && pid === vipPlayerId;
+      return `<div class="player-row${isVip ? ' vip-player-row' : ''}">
+        <span style="color:${isVip ? 'var(--accent3)' : 'var(--accent4)'};font-weight:700;${isVip ? 'text-shadow:0 0 8px rgba(255,215,0,0.4)' : ''}">${isVip ? '♛ ' : ''}${pid}</span>
+        <span style="color:${isVip ? 'var(--accent3)' : 'var(--text-dim)'};font-size:10px">${player?.name || '—'}</span>
+        <span>${s.w}/${t}</span>
+        <span style="color:${parseFloat(wr)>=55?'var(--win)':parseFloat(wr)<45?'var(--loss)':'var(--text)'}">${wr}%</span>
+        <span style="color:${parseFloat(roi)>=0?'var(--win)':'var(--loss)'}">${roi}%</span>
+        <span style="color:${s.delta>=0?'var(--win)':'var(--loss)'}">${s.delta>=0?'+':''}${fmtNum(s.delta)}</span>
+        <span style="color:var(--text-dim);font-size:10px">${s.lastBet ? new Date(s.lastBet).toLocaleTimeString() : '—'}</span>
+      </div>`;
+    }).join('');
+
+  document.getElementById('playersContent').innerHTML = `
+    <div style="padding:16px">
+      <div class="player-row header-row">
+        <span>ID</span><span>NAME</span><span>W/T</span><span>W%</span><span>ROI</span><span>NET P&L</span><span>LAST BET</span>
+      </div>
+      ${rows || '<div style="color:var(--text-dim);padding:20px">No player data</div>'}
+    </div>
+  `;
+}
+
+// ── PATTERNS ──────────────────────────────────────────────────────────────────
+function renderPatterns() {
+  const res = resolvedBets();
+  if (!res.length) { document.getElementById('patternsContent').innerHTML = '<div class="loading">No resolved bets yet</div>'; return; }
+
+  const { afterLoss, afterWin } = computeStreakData(res);
+
+  // Switch game after loss
+  const byPlayer = {};
+  [...res].sort((a,b)=>new Date(a.bet_time)-new Date(b.bet_time)).forEach(b => {
+    if (!byPlayer[b.player_id]) byPlayer[b.player_id]=[];
+    byPlayer[b.player_id].push(b);
+  });
+
+  let swW=0,swL=0,saW=0,saL=0;
+  for (const seq of Object.values(byPlayer)) {
+    for (let i=1;i<seq.length;i++) {
+      if (seq[i-1].status==='loss') {
+        const switched = seq[i].game !== seq[i-1].game;
+        if (switched) seq[i].status==='win'?swW++:swL++;
+        else seq[i].status==='win'?saW++:saL++;
+      }
+    }
+  }
+
+  // Bet size vs win rate
+  const sizeBuckets = {'<5K':{w:0,l:0},'5K-50K':{w:0,l:0},'50K-150K':{w:0,l:0},'150K+':{w:0,l:0}};
+  res.forEach(b => {
+    const a = parseInt(b.bet_amount)||0;
+    const k = a<5000?'<5K':a<50000?'5K-50K':a<150000?'50K-150K':'150K+';
+    sizeBuckets[k][b.status==='win'?'w':'l']++;
+  });
+
+  // After win: bet more vs less
+  let moreW=0,moreL=0,lessW=0,lessL=0;
+  for (const seq of Object.values(byPlayer)) {
+    for (let i=1;i<seq.length;i++) {
+      if (seq[i-1].status==='win') {
+        const prev = parseInt(seq[i-1].bet_amount)||0;
+        const curr = parseInt(seq[i].bet_amount)||0;
+        if (curr > prev) seq[i].status==='win'?moreW++:moreL++;
+        else if (curr < prev) seq[i].status==='win'?lessW++:lessL++;
+      }
+    }
+  }
+
+  // GC comparison
+  const gc1 = res.filter(b=>b.gc==='gc1');
+  const gc2 = res.filter(b=>b.gc==='gc2');
+  const gc1W = gc1.filter(b=>b.status==='win').length;
+  const gc2W = gc2.filter(b=>b.status==='win').length;
+
+  // Alternating tendency
+  let alt=0, cont=0;
+  for (const seq of Object.values(byPlayer)) {
+    for (let i=1;i<seq.length;i++) {
+      seq[i].status !== seq[i-1].status ? alt++ : cont++;
+    }
+  }
+
+  const moreT = moreW+moreL, lessT = lessW+lessL;
+  const swT = swW+swL, saT = saW+saL;
+
+  document.getElementById('patternsContent').innerHTML = `
+    <div style="padding:16px">
+      <div class="pattern-grid">
+
+        <div class="pattern-card">
+          <div class="pattern-card-title">Loss Streak Bouncebacks</div>
+          ${Object.entries(afterLoss).sort((a,b)=>parseInt(a)-parseInt(b)).map(([n,v])=>{
+            const t=v.w+v.l, pct=(v.w/t*100).toFixed(0);
+            return `<div class="pattern-row">
+              <span class="pattern-label">After ${n} loss(es)</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:var(--text-dim);font-size:10px">${v.w}/${t}</span>
+                <span class="win-rate-big" style="color:${parseFloat(pct)>=55?'var(--win)':parseFloat(pct)<45?'var(--loss)':'var(--pending)'}">${pct}%</span>
+              </div>
+            </div>`;
+          }).join('') || '<div style="color:var(--text-dim);font-size:11px">No streaks</div>'}
+        </div>
+
+        <div class="pattern-card">
+          <div class="pattern-card-title">Win Streak Continuation</div>
+          ${Object.entries(afterWin).sort((a,b)=>parseInt(a)-parseInt(b)).map(([n,v])=>{
+            const t=v.w+v.l, pct=(v.w/t*100).toFixed(0);
+            return `<div class="pattern-row">
+              <span class="pattern-label">After ${n} win(s)</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:var(--text-dim);font-size:10px">${v.w}/${t}</span>
+                <span class="win-rate-big" style="color:${parseFloat(pct)>=55?'var(--win)':parseFloat(pct)<45?'var(--loss)':'var(--pending)'}">${pct}%</span>
+              </div>
+            </div>`;
+          }).join('') || '<div style="color:var(--text-dim);font-size:11px">No streaks</div>'}
+        </div>
+
+        <div class="pattern-card">
+          <div class="pattern-card-title">Game Switching After Loss</div>
+          <div class="pattern-row">
+            <span class="pattern-label">Switch game</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="color:var(--text-dim);font-size:10px">${swW}/${swT}</span>
+              <span class="win-rate-big" style="color:${swT?((swW/swT*100)>=55?'var(--win)':'var(--loss)'):'var(--text-dim)'}">${swT?(swW/swT*100).toFixed(0):0}%</span>
+            </div>
+          </div>
+          <div class="pattern-row">
+            <span class="pattern-label">Same game</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="color:var(--text-dim);font-size:10px">${saW}/${saT}</span>
+              <span class="win-rate-big" style="color:${saT?((saW/saT*100)>=55?'var(--win)':'var(--loss)'):'var(--text-dim)'}">${saT?(saW/saT*100).toFixed(0):0}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pattern-card">
+          <div class="pattern-card-title">Bet Size vs Win Rate</div>
+          ${Object.entries(sizeBuckets).map(([k,v])=>{
+            const t=v.w+v.l; if(!t) return '';
+            const pct=(v.w/t*100).toFixed(0);
+            return `<div class="pattern-row">
+              <span class="pattern-label">${k}</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:var(--text-dim);font-size:10px">${v.w}/${t}</span>
+                <span class="win-rate-big" style="color:${parseFloat(pct)>=55?'var(--win)':parseFloat(pct)<45?'var(--loss)':'var(--pending)'}">${pct}%</span>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+
+        <div class="pattern-card">
+          <div class="pattern-card-title">After Win: Bet Size Change</div>
+          <div class="pattern-row">
+            <span class="pattern-label">Bet MORE after win</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="color:var(--text-dim);font-size:10px">${moreW}/${moreT}</span>
+              <span class="win-rate-big" style="color:${moreT?((moreW/moreT*100)>=55?'var(--win)':'var(--loss)'):'var(--text-dim)'}">${moreT?(moreW/moreT*100).toFixed(0):0}%</span>
+            </div>
+          </div>
+          <div class="pattern-row">
+            <span class="pattern-label">Bet LESS after win</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="color:var(--text-dim);font-size:10px">${lessW}/${lessT}</span>
+              <span class="win-rate-big" style="color:${lessT?((lessW/lessT*100)>=55?'var(--win)':'var(--loss)'):'var(--text-dim)'}">${lessT?(lessW/lessT*100).toFixed(0):0}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pattern-card">
+          <div class="pattern-card-title">GC Comparison</div>
+          <div class="pattern-row">
+            <span class="pattern-label">GC1 (Temptest)</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="color:var(--text-dim);font-size:10px">${gc1W}/${gc1.length}</span>
+              <span class="win-rate-big" style="color:${gc1.length?((gc1W/gc1.length*100)>=55?'var(--win)':'var(--pending)'):'var(--text-dim)'}">${gc1.length?(gc1W/gc1.length*100).toFixed(0):0}%</span>
+            </div>
+          </div>
+          <div class="pattern-row">
+            <span class="pattern-label">GC2 (Witch's Bet)</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="color:var(--text-dim);font-size:10px">${gc2W}/${gc2.length}</span>
+              <span class="win-rate-big" style="color:${gc2.length?((gc2W/gc2.length*100)>=55?'var(--win)':'var(--pending)'):'var(--text-dim)'}">${gc2.length?(gc2W/gc2.length*100).toFixed(0):0}%</span>
+            </div>
+          </div>
+          <div class="pattern-row">
+            <span class="pattern-label">Alternating tendency</span>
+            <span style="color:var(--text)">${alt+cont?(alt/(alt+cont)*100).toFixed(0):0}% alternates</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+// ── AI ────────────────────────────────────────────────────────────────────────
+function addAiMsg(role, content) {
+  const el = document.createElement('div');
+  el.className = `ai-msg ${role}`;
+  el.innerHTML = `<div class="ai-msg-label">${role === 'system' ? 'CLAUDE' : role === 'user' ? 'YOU' : '...'}</div>${content}`;
+  document.getElementById('aiMessages').appendChild(el);
+  document.getElementById('aiMessages').scrollTop = 99999;
+  return el;
+}
+
+function buildGodModeContext() {
+  const allRes = allBets.filter(b => b.status === 'win' || b.status === 'loss');
+  const allFiltered = filteredBets();
+  const res = resolvedBets();
+  const now = new Date();
+
+  // ── Per-player full history ──
+  const playerHistories = {};
+  [...allRes].sort((a,b) => new Date(a.bet_time)-new Date(b.bet_time)).forEach(b => {
+    if (!playerHistories[b.player_id]) playerHistories[b.player_id] = [];
+    playerHistories[b.player_id].push(b);
+  });
+
+  // ── Per-player stats ──
+  const playerStats = {};
+  for (const [pid, seq] of Object.entries(playerHistories)) {
+    const wins = seq.filter(b=>b.status==='win');
+    const wagered = seq.reduce((s,b)=>s+(parseInt(b.bet_amount)||0),0);
+    const delta = seq.reduce((s,b)=>s+(parseInt(b.amount_delta)||0),0);
+    const lastBets = seq.slice(-5).map(b=>`${b.status[0].toUpperCase()}(${b.game},${fmtNum(parseInt(b.bet_amount)||0)})`).join(' ');
+    const currentStreak = (() => {
+      let streak = 0, type = seq[seq.length-1]?.status;
+      for (let i = seq.length-1; i >= 0; i--) {
+        if (seq[i].status === type) streak++; else break;
+      }
+      return `${streak}x ${type}`;
+    })();
+    const gameBreakdown = {};
+    seq.forEach(b => {
+      if (!gameBreakdown[b.game]) gameBreakdown[b.game] = {w:0,l:0};
+      gameBreakdown[b.game][b.status==='win'?'w':'l']++;
+    });
+    const player = allPlayers.find(p=>p.id===pid);
+    playerStats[pid] = {
+      name: player?.name || '—',
+      total: seq.length,
+      wins: wins.length,
+      wr: (wins.length/seq.length*100).toFixed(1),
+      wagered, delta,
+      roi: wagered ? (delta/wagered*100).toFixed(1) : 0,
+      currentStreak,
+      last5: lastBets,
+      games: Object.entries(gameBreakdown).map(([g,v])=>`${g}:${v.w}/${v.w+v.l}`).join(' '),
+      lastBetTime: seq[seq.length-1]?.bet_time,
+      gc: seq[seq.length-1]?.gc
+    };
+  }
+
+  // ── Streak analysis ──
+  const afterLoss = {}, afterWin = {};
+  for (const seq of Object.values(playerHistories)) {
+    for (let i=1;i<seq.length;i++) {
+      let ls=0,ws=0;
+      for (let j=i-1;j>=0;j--) { if(seq[j].status==='loss')ls++;else break; }
+      for (let j=i-1;j>=0;j--) { if(seq[j].status==='win')ws++;else break; }
+      if(ls>0){if(!afterLoss[ls])afterLoss[ls]={w:0,l:0};afterLoss[ls][seq[i].status==='win'?'w':'l']++;}
+      if(ws>0){if(!afterWin[ws])afterWin[ws]={w:0,l:0};afterWin[ws][seq[i].status==='win'?'w':'l']++;}
+    }
+  }
+
+  // ── Hour analysis (all games + per game) ──
+  const hourStats = {};
+  allRes.forEach(b => {
+    const h = new Date(b.bet_time).getUTCHours();
+    if(!hourStats[h]) hourStats[h] = {};
+    if(!hourStats[h][b.game]) hourStats[h][b.game] = {w:0,l:0};
+    hourStats[h][b.game][b.status==='win'?'w':'l']++;
+  });
+
+  // ── Switch game after loss ──
+  let swW=0,swL=0,saW=0,saL=0;
+  for (const seq of Object.values(playerHistories)) {
+    for (let i=1;i<seq.length;i++) {
+      if(seq[i-1].status==='loss'){
+        const sw = seq[i].game!==seq[i-1].game;
+        if(sw) seq[i].status==='win'?swW++:swL++;
+        else seq[i].status==='win'?saW++:saL++;
+      }
+    }
+  }
+
+  // ── Pending bets right now ──
+  const pending = allBets.filter(b=>b.status==='pending');
+
+  // ── Recent 20 bets ──
+  const recent20 = [...allRes].sort((a,b)=>new Date(b.bet_time)-new Date(a.bet_time)).slice(0,20);
+
+  return `You are the GOD-MODE analyst of the Tensura WhatsApp gambling operation.
+You have COMPLETE, UNRESTRICTED access to every single bet, every player, every pattern in the database.
+You know everything. You see everything. Be ruthlessly specific, data-driven, and actionable.
+Never say you don't have data — it's ALL here. Answer everything with exact numbers from the data.
+Current UTC time: ${now.toUTCString()} (hour: ${now.getUTCHours()})
+Active GC filter: ${gcFilter}
+
+════════════════════════════════════════
+FULL OPERATION OVERVIEW
+════════════════════════════════════════
+Total bets logged: ${allBets.length}
+Resolved: ${allRes.length} | Pending: ${allBets.filter(b=>b.status==='pending').length} | Incomplete: ${allBets.filter(b=>b.status==='incomplete').length}
+Overall win rate: ${allRes.length?(allRes.filter(b=>b.status==='win').length/allRes.length*100).toFixed(2):0}%
+Total wagered: ${allRes.reduce((s,b)=>s+(parseInt(b.bet_amount)||0),0).toLocaleString()}
+Net house delta: ${allRes.reduce((s,b)=>s+(parseInt(b.amount_delta)||0),0).toLocaleString()}
+Total unique players: ${allPlayers.length}
+GC1 (Temptest): ${allRes.filter(b=>b.gc==='gc1').length} bets, ${(allRes.filter(b=>b.gc==='gc1'&&b.status==='win').length/Math.max(1,allRes.filter(b=>b.gc==='gc1').length)*100).toFixed(1)}% WR
+GC2 (Witch's Bet): ${allRes.filter(b=>b.gc==='gc2').length} bets, ${(allRes.filter(b=>b.gc==='gc2'&&b.status==='win').length/Math.max(1,allRes.filter(b=>b.gc==='gc2').length)*100).toFixed(1)}% WR
+
+════════════════════════════════════════
+GAME WIN RATES (all time)
+════════════════════════════════════════
+${['casino','slots','coinflip','roulette','dice','dicebattle'].map(g=>{
+  const gb = allRes.filter(b=>b.game===g);
+  if(!gb.length) return `${g}: no data`;
+  const w = gb.filter(b=>b.status==='win').length;
+  return `${g.toUpperCase()}: ${w}/${gb.length} = ${(w/gb.length*100).toFixed(1)}% | wagered: ${gb.reduce((s,b)=>s+(parseInt(b.bet_amount)||0),0).toLocaleString()}`;
+}).join('\n')}
+
+════════════════════════════════════════
+WIN RATE BY HOUR × GAME (UTC)
+════════════════════════════════════════
+${Object.entries(hourStats).sort((a,b)=>parseInt(a)-parseInt(b)).map(([h,games])=>{
+  const all = Object.values(games).reduce((s,v)=>({w:s.w+v.w,l:s.l+v.l}),{w:0,l:0});
+  const total = all.w+all.l;
+  const gameDetail = Object.entries(games).map(([g,v])=>`${g}:${(v.w/(v.w+v.l)*100).toFixed(0)}%(${v.w+v.l})`).join(' ');
+  return `${h}:00 UTC — TOTAL: ${(all.w/total*100).toFixed(0)}% (${total} bets) | ${gameDetail}`;
+}).join('\n')}
+
+════════════════════════════════════════
+STREAK PATTERNS
+════════════════════════════════════════
+AFTER N CONSECUTIVE LOSSES → next outcome:
+${Object.entries(afterLoss).sort((a,b)=>parseInt(a)-parseInt(b)).map(([n,v])=>`  After ${n}L: ${v.w}/${v.w+v.l} = ${(v.w/(v.w+v.l)*100).toFixed(0)}% WIN`).join('\n')}
+
+AFTER N CONSECUTIVE WINS → next outcome:
+${Object.entries(afterWin).sort((a,b)=>parseInt(a)-parseInt(b)).map(([n,v])=>`  After ${n}W: ${v.w}/${v.w+v.l} = ${(v.w/(v.w+v.l)*100).toFixed(0)}% WIN`).join('\n')}
+
+Game switch after loss: ${swW}/${swW+swL} = ${swW+swL?(swW/(swW+swL)*100).toFixed(0):0}% WIN
+Same game after loss: ${saW}/${saW+saL} = ${saW+saL?(saW/(saW+saL)*100).toFixed(0):0}% WIN
+
+════════════════════════════════════════
+ALL PLAYER PROFILES (complete)
+════════════════════════════════════════
+${Object.entries(playerStats).sort((a,b)=>parseFloat(b[1].wr)-parseFloat(a[1].wr)).map(([pid,s])=>
+`${pid} (${s.name}) | ${s.wins}/${s.total} = ${s.wr}% WR | ROI: ${s.roi}% | Delta: ${parseInt(s.delta)>=0?'+':''}${s.delta} | Streak: ${s.currentStreak} | Last5: ${s.last5} | Games: ${s.games} | GC: ${s.gc}`
+).join('\n')}
+
+════════════════════════════════════════
+LIVE PENDING BETS RIGHT NOW
+════════════════════════════════════════
+${pending.length ? pending.map(b=>`${b.player_id} | ${b.game} | ${fmtNum(parseInt(b.bet_amount)||0)} | ${b.gc} | ${new Date(b.bet_time).toLocaleTimeString()}`).join('\n') : 'None currently pending'}
+
+════════════════════════════════════════
+LAST 20 RESOLVED BETS (most recent first)
+════════════════════════════════════════
+${recent20.map(b=>`${b.player_id} | ${b.game} | ${b.status.toUpperCase()} | ${fmtNum(parseInt(b.bet_amount)||0)} | ${b.gc} | ${new Date(b.bet_time).toLocaleTimeString()}`).join('\n')}`;
+}
+
+const QUICK_PROMPTS = {
+  full_analysis: "Full god-mode analysis. Every edge, every pattern, every timing signal, streak data, player tendencies, game edges, hour windows. Rank everything by reliability and sample size. Give me a complete playbook.",
+  best_time: "Right now it's " + new Date().toUTCString() + ". Should I play right now? Which game, which GC? Give me the exact optimal play for this exact moment based on all patterns in the data.",
+  streak_strategy: "Give me the complete streak ruleset based on the actual data. Exact numbers: when to keep going, when to stop, when to size up, when to size down. Make it a ruleset I can memorize.",
+  game_edge: "Rank every game by edge. For each game: overall WR, best hour, worst hour, best GC, worst GC. Which single game+hour+GC combo has the highest win rate in the data?",
+  danger_signs: "What patterns precede losing streaks? Look at sequences before big losses. What does the data say about when to absolutely stop? Give me red flags with actual examples from the data.",
+  hot_players: "Full player breakdown. Who's profitable? Who's not? What are the top 3 players doing differently from the bottom 3? Is there a copyable pattern?"
+};
+
+async function quickAsk(type) {
+  if (enforceGuestLock()) return;
+  const prompt = QUICK_PROMPTS[type];
+  addAiMsg('user', prompt);
+  await callClaude(prompt);
+}
+
+async function sendAiMessage() {
+  if (enforceGuestLock()) return;
+  const input = document.getElementById('aiInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addAiMsg('user', msg);
+  await callClaude(msg);
+}
+
+function handleAiKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); }
+}
+
+async function callClaude(userMsg) {
+  const thinking = addAiMsg('thinking', '<div class="typing-dots"><span></span><span></span><span></span></div>');
+
+  try {
+    const context = buildGodModeContext();
+    const fullMsg = context + '\n\n════════════════════════════════════════\nQUESTION\n════════════════════════════════════════\n' + userMsg;
+
+    const msgEl = addAiMsg('system', '');
+    msgEl.querySelector('.ai-msg-label').textContent = 'CLAUDE';
+    let fullText = '';
+
+    const response = await puter.ai.chat(fullMsg, { model: 'claude-sonnet-4-6', stream: true });
+
+    for await (const part of response) {
+      if (part?.text) {
+        fullText += part.text;
+        const formatted = fullText
+          .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-bright)">$1</strong>')
+          .replace(/\n\n/g, '<br><br>')
+          .replace(/\n/g, '<br>')
+          .replace(/#{1,3} (.*)/g, '<span style="color:var(--accent);font-weight:700;letter-spacing:1px">$1</span>')
+          .replace(/(\d+\.?\d*%)/g, (m) => {
+            const n = parseFloat(m);
+            const col = n >= 60 ? 'var(--win)' : n < 40 ? 'var(--loss)' : 'var(--pending)';
+            return `<span style="color:${col};font-weight:700">${m}</span>`;
+          })
+          .replace(/\b(WIN|PLAY|HOT|STRONG|YES)\b/g, '<span style="color:var(--win);font-weight:700">$1</span>')
+          .replace(/\b(LOSS|AVOID|COLD|STOP|NO|DANGER)\b/g, '<span style="color:var(--loss);font-weight:700">$1</span>');
+        msgEl.innerHTML = `<div class="ai-msg-label">CLAUDE // GOD MODE</div>${formatted}`;
+        document.getElementById('aiMessages').scrollTop = 99999;
+      }
+    }
+
+    thinking.remove();
+
+    // Guest lock: persist spent flag across ALL storage layers
+    if (accessLevel === 'guest') {
+      guestUsed = true;
+      await markGuestSpent(deviceFP);
+      enforceGuestLock();
+      addAiMsg('system', '<span style="color:var(--accent4);font-size:10px;letter-spacing:1px">— GUEST LIMIT REACHED. AI NOW LOCKED. Place a bet → check Players tab → find your Player ID → contact Xavier. —</span>');
+    }
+
+  } catch (e) {
+    thinking.remove();
+    addAiMsg('system', `<span style="color:var(--loss)">Error: ${e.message}</span>`);
+  }
+}
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.textContent.toLowerCase().includes(tab)));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === `panel-${tab}`));
+
+  if (tab === 'overview') renderOverview();
+  else if (tab === 'bets') renderBetsTable();
+  else if (tab === 'players') renderPlayers();
+  else if (tab === 'patterns') renderPatterns();
+}
+
+// ── AUTO REFRESH ──────────────────────────────────────────────────────────────
+function toggleAutoRefresh() {
+  autoRefresh = !autoRefresh;
+  const btn = document.getElementById('autoRefreshBtn');
+  btn.textContent = `AUTO: ${autoRefresh ? 'ON' : 'OFF'}`;
+  btn.className = autoRefresh ? 'btn active' : 'btn';
+  if (autoRefresh) scheduleRefresh(); else clearTimeout(autoRefreshTimer);
+}
+
+function scheduleRefresh() {
+  if (!autoRefresh) return;
+  autoRefreshTimer = setTimeout(async () => { await loadAll(); scheduleRefresh(); }, 15000);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function fmtNum(n) {
+  if (Math.abs(n) >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1000) return (n/1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function groupBy(arr, key) {
+  return arr.reduce((acc, item) => { (acc[item[key]] = acc[item[key]] || []).push(item); return acc; }, {});
+}
+
+// ── MOBILE NAV ───────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const sb = document.getElementById('mainSidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('mainSidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+function toggleAiPanel() {
+  const ai = document.getElementById('aiPanelEl');
+  const ov = document.getElementById('sidebarOverlay');
+  ai.classList.toggle('open');
+  // overlay closes AI panel on mobile tap outside
+  if (ai.classList.contains('open')) {
+    ov.classList.add('open');
+    ov.onclick = closeAiPanel;
+  } else {
+    ov.classList.remove('open');
+    ov.onclick = closeSidebar;
+  }
+}
+function closeAiPanel() {
+  document.getElementById('aiPanelEl').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+  document.getElementById('sidebarOverlay').onclick = closeSidebar;
+}
+// Close panels on tab switch (mobile UX)
+const _origSwitchTab = switchTab;
+// Wrap switchTab to close sidebar on mobile
+document.addEventListener('DOMContentLoaded', () => {});
+// Patch nav items to close sidebar after navigation
+document.querySelectorAll('.nav-item').forEach(n => {
+  n.addEventListener('click', () => { if (window.innerWidth <= 680) closeSidebar(); });
+});
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+loadAll();
+scheduleRefresh();
+</script>
+</body>
+</html>
